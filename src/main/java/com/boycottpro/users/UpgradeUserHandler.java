@@ -9,6 +9,7 @@ import com.boycottpro.models.UserBoycotts;
 import com.boycottpro.models.UserCauses;
 import com.boycottpro.models.Users;
 import com.boycottpro.users.model.UpgradeUserForm;
+import com.boycottpro.utilities.JwtUtility;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
@@ -36,7 +37,8 @@ public class UpgradeUserHandler implements RequestHandler<APIGatewayProxyRequest
     @Override
     public APIGatewayProxyResponseEvent handleRequest(APIGatewayProxyRequestEvent event, Context context) {
         try {
-            Map<String, String> pathParams = event.getPathParameters();
+            String sub = JwtUtility.getSubFromRestEvent(event);
+            if (sub == null) return response(401, "Unauthorized");
             UpgradeUserForm form = objectMapper.readValue(event.getBody(), UpgradeUserForm.class);
             if (form == null || form.getUser_boycotts() == null || form.getUser_causes() == null) {
                 ResponseMessage message = new ResponseMessage(400,
@@ -48,25 +50,14 @@ public class UpgradeUserHandler implements RequestHandler<APIGatewayProxyRequest
                         .withHeaders(Map.of("Content-Type", "application/json"))
                         .withBody(responseBody);
             }
-            String userId = (pathParams != null) ? pathParams.get("user_id") : null;
-            if (userId == null || userId.isEmpty()) {
-                ResponseMessage message = new ResponseMessage(400,
-                        "sorry, there was an error processing your request",
-                        "user_id not present");
-                String responseBody = objectMapper.writeValueAsString(message);
-                return new APIGatewayProxyResponseEvent()
-                        .withStatusCode(400)
-                        .withHeaders(Map.of("Content-Type", "application/json"))
-                        .withBody(responseBody);
-            }
-            Users updatedUser = upgradeUser(userId) ;
+            Users updatedUser = upgradeUser(sub) ;
             if (updatedUser == null) {
                 return response(404, "User not found or upgrade failed");
             }
             // Insert user boycotts and causes if provided
             if (form.getUser_boycotts() != null && !form.getUser_boycotts().isEmpty()) {
                 for(UserBoycotts boycott : form.getUser_boycotts()) {
-                    boycott.setUser_id(userId);
+                    boycott.setUser_id(sub);
                     String companyId = boycott.getCompany_id();
                     if(boycott.getPersonal_reason()!=null && !boycott.getPersonal_reason().isEmpty()) {
                         String companyCauseId = boycott.getPersonal_reason() + "#" + companyId;
@@ -81,7 +72,7 @@ public class UpgradeUserHandler implements RequestHandler<APIGatewayProxyRequest
             }
             if (form.getUser_causes() != null && !form.getUser_causes().isEmpty()) {
                 for(UserCauses userCauses : form.getUser_causes()) {
-                    userCauses.setUser_id(userId);
+                    userCauses.setUser_id(sub);
                 }
                 insertUserCauses(form.getUser_causes());
             }
@@ -119,7 +110,7 @@ public class UpgradeUserHandler implements RequestHandler<APIGatewayProxyRequest
 
             // Convert back to Users object
             Users updatedUser = new Users();
-            updatedUser.setUser_id(updatedItem.get("user_id").s());
+            updatedUser.setUser_id(null);
             updatedUser.setEmail_addr(updatedItem.get("email_addr").s());
             updatedUser.setUsername(updatedItem.get("username").s());
             updatedUser.setCreated_ts(Long.parseLong(updatedItem.get("created_ts").n()));

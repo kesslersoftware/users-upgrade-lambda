@@ -17,6 +17,7 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.*;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -45,7 +46,16 @@ public class UpgradeUserHandlerTest {
     public void testUpgradeUserHandler_success() throws Exception {
         // Mock path parameters
         APIGatewayProxyRequestEvent event = new APIGatewayProxyRequestEvent();
-        event.setPathParameters(Map.of("user_id", "user123"));
+        Map<String, String> claims = Map.of("sub", "11111111-2222-3333-4444-555555555555");
+        Map<String, Object> authorizer = new HashMap<>();
+        authorizer.put("claims", claims);
+
+        APIGatewayProxyRequestEvent.ProxyRequestContext rc = new APIGatewayProxyRequestEvent.ProxyRequestContext();
+        rc.setAuthorizer(authorizer);
+        event.setRequestContext(rc);
+
+        // Path param "s" since client calls /users/s
+        event.setPathParameters(Map.of("user_id", "s"));
 
         // Build UpgradeUserForm input JSON
         UpgradeUserForm form = new UpgradeUserForm();
@@ -96,7 +106,16 @@ public class UpgradeUserHandlerTest {
     @Test
     public void testUpgradeUserHandler_missingUserId() throws Exception {
         APIGatewayProxyRequestEvent event = new APIGatewayProxyRequestEvent();
-        event.setPathParameters(null);
+        Map<String, String> claims = Map.of("sub", "11111111-2222-3333-4444-555555555555");
+        Map<String, Object> authorizer = new HashMap<>();
+        //authorizer.put("claims", claims);
+
+        APIGatewayProxyRequestEvent.ProxyRequestContext rc = new APIGatewayProxyRequestEvent.ProxyRequestContext();
+        rc.setAuthorizer(authorizer);
+        event.setRequestContext(rc);
+
+        // Path param "s" since client calls /users/s
+        event.setPathParameters(Map.of("sub","s"));
         UpgradeUserForm form = new UpgradeUserForm();
         form.setUser_boycotts(List.of(
                 new UserBoycotts("user123", "comp123", "company name", "cause123",
@@ -111,15 +130,24 @@ public class UpgradeUserHandlerTest {
         event.setBody(bodyJson);
         APIGatewayProxyResponseEvent response = handler.handleRequest(event, context);
 
-        assertEquals(400, response.getStatusCode());
+        assertEquals(401, response.getStatusCode());
         String responseBody = response.getBody();
-        assert responseBody.contains("user_id not present");
+        assert responseBody.contains("Unauthorized");
     }
 
     @Test
     public void testUpgradeUserHandler_exceptionThrown() throws JsonProcessingException {
         APIGatewayProxyRequestEvent event = new APIGatewayProxyRequestEvent();
-        event.setPathParameters(Map.of("user_id", "errorUser"));
+        Map<String, String> claims = Map.of("sub", "11111111-2222-3333-4444-555555555555");
+        Map<String, Object> authorizer = new HashMap<>();
+        authorizer.put("claims", claims);
+
+        APIGatewayProxyRequestEvent.ProxyRequestContext rc = new APIGatewayProxyRequestEvent.ProxyRequestContext();
+        rc.setAuthorizer(authorizer);
+        event.setRequestContext(rc);
+
+        // Path param "s" since client calls /users/s
+        event.setPathParameters(Map.of("sub","s"));
         UpgradeUserForm form = new UpgradeUserForm();
         form.setUser_boycotts(List.of(
                 new UserBoycotts("user123", "comp123", "company name", "cause123",
