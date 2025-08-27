@@ -36,23 +36,23 @@ public class UpgradeUserHandler implements RequestHandler<APIGatewayProxyRequest
 
     @Override
     public APIGatewayProxyResponseEvent handleRequest(APIGatewayProxyRequestEvent event, Context context) {
+        String sub = null;
         try {
-            String sub = JwtUtility.getSubFromRestEvent(event);
+            sub = JwtUtility.getSubFromRestEvent(event);
             if (sub == null) return response(401, "Unauthorized");
             UpgradeUserForm form = objectMapper.readValue(event.getBody(), UpgradeUserForm.class);
             if (form == null || form.getUser_boycotts() == null || form.getUser_causes() == null) {
                 ResponseMessage message = new ResponseMessage(400,
                         "sorry, there was an error processing your request",
                         "Invalid request body or missing fields");
-                String responseBody = objectMapper.writeValueAsString(message);
-                return new APIGatewayProxyResponseEvent()
-                        .withStatusCode(400)
-                        .withHeaders(Map.of("Content-Type", "application/json"))
-                        .withBody(responseBody);
+                return response(400, message);
             }
             Users updatedUser = upgradeUser(sub) ;
             if (updatedUser == null) {
-                return response(404, "User not found or upgrade failed");
+                ResponseMessage message = new ResponseMessage(400,
+                        "User not found or upgrade failed",
+                        "User not found or upgrade failed");
+                return response(404, message);
             }
             // Insert user boycotts and causes if provided
             if (form.getUser_boycotts() != null && !form.getUser_boycotts().isEmpty()) {
@@ -76,12 +76,27 @@ public class UpgradeUserHandler implements RequestHandler<APIGatewayProxyRequest
                 }
                 insertUserCauses(form.getUser_causes());
             }
-            String response = "User upgraded to premium successfully!";
-            return response(200, response);
+            ResponseMessage message = new ResponseMessage(400,
+                    "User upgraded to premium successfully!",
+                    null);
+            return response(200, message);
         } catch (Exception e) {
-            e.printStackTrace();
+            System.out.println(e.getMessage() + " for user " + sub);
             return response(500, "Transaction failed: " + e.getMessage());
         }
+    }
+
+    private APIGatewayProxyResponseEvent response(int status, Object body) {
+        String responseBody = null;
+        try {
+            responseBody = objectMapper.writeValueAsString(body);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+        return new APIGatewayProxyResponseEvent()
+                .withStatusCode(status)
+                .withHeaders(Map.of("Content-Type", "application/json"))
+                .withBody(responseBody);
     }
 
     private Users upgradeUser(String userId) {
@@ -125,21 +140,6 @@ public class UpgradeUserHandler implements RequestHandler<APIGatewayProxyRequest
             e.printStackTrace();
             throw new RuntimeException("Failed to upgrade user: " + e.getMessage(), e);
         }
-    }
-
-    private APIGatewayProxyResponseEvent response(int status, String body)  {
-        ResponseMessage message = new ResponseMessage(status,body,
-                body);
-        String responseBody = null;
-        try {
-            responseBody = objectMapper.writeValueAsString(message);
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
-        }
-        return new APIGatewayProxyResponseEvent()
-                .withStatusCode(status)
-                .withHeaders(Map.of("Content-Type", "application/json"))
-                .withBody(responseBody);
     }
 
     private void batchWrite(String tableName, List<WriteRequest> writeRequests) {

@@ -1,0 +1,5 @@
+aws lambda update-function-code \
+    --function-name "users-upgrade-lambda" \
+    --region "us-east-1" \
+    --profile "boycottpro-dev-dev" \
+    --zip-file "fileb://$(pwd -W)/target/users-upgrade-lambda.jar"
