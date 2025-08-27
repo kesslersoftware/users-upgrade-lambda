@@ -39,7 +39,7 @@ public class UpgradeUserHandler implements RequestHandler<APIGatewayProxyRequest
         String sub = null;
         try {
             sub = JwtUtility.getSubFromRestEvent(event);
-            if (sub == null) return response(401, "Unauthorized");
+            if (sub == null) return response(401, Map.of("message", "Unauthorized"));
             UpgradeUserForm form = objectMapper.readValue(event.getBody(), UpgradeUserForm.class);
             if (form == null || form.getUser_boycotts() == null || form.getUser_causes() == null) {
                 ResponseMessage message = new ResponseMessage(400,
@@ -82,7 +82,7 @@ public class UpgradeUserHandler implements RequestHandler<APIGatewayProxyRequest
             return response(200, message);
         } catch (Exception e) {
             System.out.println(e.getMessage() + " for user " + sub);
-            return response(500, "Transaction failed: " + e.getMessage());
+            return response(500, Map.of("message", "Transaction failed: " + e.getMessage()));
         }
     }
 
