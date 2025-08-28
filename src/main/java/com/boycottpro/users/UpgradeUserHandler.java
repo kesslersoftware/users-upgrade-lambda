@@ -76,7 +76,7 @@ public class UpgradeUserHandler implements RequestHandler<APIGatewayProxyRequest
                 }
                 insertUserCauses(form.getUser_causes());
             }
-            ResponseMessage message = new ResponseMessage(400,
+            ResponseMessage message = new ResponseMessage(200,
                     "User upgraded to premium successfully!",
                     null);
             return response(200, message);
